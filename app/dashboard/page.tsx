@@ -1,6 +1,8 @@
 import { AppShell } from "../../components/AppShell";
+import { BrowserDebugLog } from "../../components/BrowserDebugLog";
 import { DashboardCharts } from "../../components/DashboardCharts";
 import { OverviewCard } from "../../components/OverviewCard";
+import { dbg, dbgErr } from "../../lib/debugLog";
 import { getSupabaseServiceClient } from "../../lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +20,7 @@ async function safeCount(
 ): Promise<number> {
   const { count, error } = await promise;
   if (error) {
-    console.error("[DashboardPage] count query error:", error.message);
+    dbgErr("DashboardPage", "count query error", error.message);
     return 0;
   }
   return count ?? 0;
@@ -34,6 +36,7 @@ function reportDayKey(r: ReportRow): string | null {
 }
 
 export default async function DashboardPage() {
+  dbg("DashboardPage", "render start", { nodeEnv: process.env.NODE_ENV });
   const supabase = getSupabaseServiceClient();
 
   const [
@@ -73,6 +76,15 @@ export default async function DashboardPage() {
     ),
   ]);
 
+  dbg("DashboardPage", "metrics counts", {
+    totalReports,
+    cleaned,
+    pending,
+    workerCount,
+    totalBinRequests,
+    pendingBinRequests,
+  });
+
   const since = new Date();
   since.setUTCDate(since.getUTCDate() - 30);
   since.setUTCHours(0, 0, 0, 0);
@@ -84,7 +96,7 @@ export default async function DashboardPage() {
     .order("created_at", { ascending: true });
 
   if (reportsError) {
-    console.error("[DashboardPage] recentReports error", reportsError);
+    dbgErr("DashboardPage", "recentReports primary query error", reportsError);
   }
 
   let reports: ReportRow[] = Array.isArray(recentReports)
@@ -98,7 +110,7 @@ export default async function DashboardPage() {
       .order("created_at", { ascending: false })
       .limit(500);
     if (fbErr) {
-      console.error("[DashboardPage] reports fallback error", fbErr);
+      dbgErr("DashboardPage", "reports fallback error", fbErr);
     } else if (Array.isArray(fallback) && fallback.length > 0) {
       const cutoff = since.getTime();
       const filtered = (fallback as ReportRow[]).filter((r) => {
@@ -108,8 +120,14 @@ export default async function DashboardPage() {
         return !Number.isNaN(t) && t >= cutoff;
       });
       reports = filtered.length > 0 ? filtered : (fallback as ReportRow[]).slice(0, 200);
+      dbg("DashboardPage", "reports fallback applied", {
+        filteredLen: filtered.length,
+        finalReportsLen: reports.length,
+      });
     }
   }
+
+  dbg("DashboardPage", "reports for charts", { count: reports.length, since: since.toISOString() });
 
   const dayCounts: { label: string; count: number }[] = [];
   for (let i = 6; i >= 0; i--) {
@@ -147,6 +165,8 @@ export default async function DashboardPage() {
     score,
   }));
 
+  dbg("DashboardPage", "chart series", { dayCounts, severityCounts });
+
   const { data: recentBinRequests, error: binRequestsError } = await supabase
     .from("bin_requests")
     .select("id, address, latitude, longitude, status, created_at")
@@ -154,8 +174,12 @@ export default async function DashboardPage() {
     .limit(10);
 
   if (binRequestsError) {
-    console.error("[DashboardPage] binRequests error", binRequestsError);
+    dbgErr("DashboardPage", "recentBinRequests error", binRequestsError);
   }
+
+  dbg("DashboardPage", "recent bin requests row count", {
+    n: Array.isArray(recentBinRequests) ? recentBinRequests.length : 0,
+  });
 
   const metrics = [
     { label: "Total Reports", value: totalReports },
@@ -166,8 +190,28 @@ export default async function DashboardPage() {
     { label: "Pending Bin Requests", value: pendingBinRequests },
   ];
 
+  dbg("DashboardPage", "render complete");
+
   return (
     <AppShell>
+      <BrowserDebugLog
+        tag="DashboardPage"
+        payload={{
+          totalReports,
+          cleaned,
+          pending,
+          workerCount,
+          totalBinRequests,
+          pendingBinRequests,
+          reportsError: reportsError?.message ?? null,
+          reportsCount: reports.length,
+          sinceUtc: since.toISOString(),
+          dayCounts,
+          severityCounts,
+          binRequestsError: binRequestsError?.message ?? null,
+          recentBinRequestsShown: Array.isArray(recentBinRequests) ? recentBinRequests.length : 0,
+        }}
+      />
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {metrics.map((m) => (
           <OverviewCard key={m.label} label={m.label} value={m.value} />

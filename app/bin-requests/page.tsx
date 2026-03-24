@@ -1,10 +1,12 @@
+import { BrowserDebugLog } from "../../components/BrowserDebugLog";
 import { BinRequestsClient, type BinRequestItem } from "./BinRequestsClient";
+import { dbg, dbgErr } from "../../lib/debugLog";
 import { getSupabaseServiceClient } from "../../lib/supabaseServer";
-
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function BinRequestsPage() {
+  dbg("BinRequestsPage", "render start");
   const supabase = getSupabaseServiceClient();
 
   const { data, error } = await supabase
@@ -13,11 +15,11 @@ export default async function BinRequestsPage() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("[BinRequestsPage] Failed to fetch bin requests", error);
+    dbgErr("BinRequestsPage", "supabase select error", error);
   }
 
   const rows = Array.isArray(data) ? data : [];
-
+  dbg("BinRequestsPage", "fetched rows", { count: rows.length, hasError: !!error });
   const binRequests: BinRequestItem[] = rows.map((br: any) => ({
     id: br.id,
     address: br.address ?? "Unknown address",
@@ -28,5 +30,16 @@ export default async function BinRequestsPage() {
     user_id: br.user_id ?? null,
   }));
 
-  return <BinRequestsClient binRequests={binRequests} />;
+  return (
+    <>
+      <BrowserDebugLog
+        tag="BinRequestsPage"
+        payload={{
+          rowCount: binRequests.length,
+          supabaseError: error?.message ?? null,
+        }}
+      />
+      <BinRequestsClient binRequests={binRequests} />
+    </>
+  );
 }

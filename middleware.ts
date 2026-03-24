@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { dbg } from "./lib/debugLog";
 
 const PUBLIC_PATHS = [
   "/login",
@@ -17,7 +18,7 @@ const PUBLIC_PATHS = [
 // For now, no server-side auth; everything is handled client-side.
 export async function middleware(req: NextRequest) {
   const isPublic = PUBLIC_PATHS.some((p) => req.nextUrl.pathname.startsWith(p));
-  console.log("[middleware] Allowing request (frontend-only auth)", {
+  dbg("middleware", "pass through (frontend-only auth)", {
     method: req.method,
     path: req.nextUrl.pathname,
     isPublic,

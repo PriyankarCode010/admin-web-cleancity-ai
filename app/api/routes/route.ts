@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+import { dbg, dbgErr } from "../../../lib/debugLog";
 import { getSupabaseServiceClient } from "../../../lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
+    dbg("api/routes", "GET start", { url: req.url });
     const supabase = getSupabaseServiceClient();
     const url = new URL(req.url);
     const forAssignment =
@@ -32,7 +34,7 @@ export async function GET(req: Request) {
     const { data: routes, error } = await query;
 
     if (error) {
-      console.error("[routes:GET] Supabase error", error);
+      dbgErr("api/routes", "GET Supabase error", error);
 
       if (
         error.code === "PGRST205" ||
@@ -59,7 +61,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json(formattedRoutes, { status: 200 });
   } catch (err) {
-    console.error("[routes:GET] Unexpected error", err);
+    dbgErr("api/routes", "GET unexpected", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

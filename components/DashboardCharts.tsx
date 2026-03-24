@@ -1,3 +1,5 @@
+import { dbg } from "../lib/debugLog";
+
 type DayPoint = { label: string; count: number };
 type BarPoint = { zone: string; score: number };
 
@@ -11,6 +13,13 @@ export function DashboardCharts({
   dayCounts: DayPoint[];
   bars: BarPoint[];
 }) {
+  dbg("DashboardCharts", "render", {
+    dayPoints: dayCounts.length,
+    barPoints: bars.length,
+    dayTotals: dayCounts.map((d) => d.count),
+    barScores: bars.map((b) => b.score),
+  });
+
   const maxLine = Math.max(1, ...dayCounts.map((d) => d.count));
   const nSeg = Math.max(1, dayCounts.length - 1);
 

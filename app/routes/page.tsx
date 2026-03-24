@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { AppShell } from "../../components/AppShell";
+import { BrowserDebugLog } from "../../components/BrowserDebugLog";
 import { revalidatePath } from "next/cache";
+import { dbg, dbgErr } from "../../lib/debugLog";
+import { getServerFetchBaseUrl } from "../../lib/serverFetchBase";
 
 type RouteData = {
   id: string;
@@ -16,24 +19,40 @@ export const dynamic = "force-dynamic";
 
 export default async function RoutesPage() {
   /* ================= FETCH ROUTES FROM NEXT API ================= */
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/routes`,
-    { cache: "no-store" }
-  );
+  const base = getServerFetchBaseUrl();
+  const routesUrl = `${base}/api/routes`;
+  dbg("RoutesPage", "fetch list", { base, routesUrl });
+
+  const res = await fetch(routesUrl, { cache: "no-store" });
 
   let routesData: RouteData[] = [];
   let errorMessage: string | null = null;
 
+  dbg("RoutesPage", "fetch list result", { ok: res.ok, status: res.status });
+
   if (res.ok) {
     routesData = await res.json();
+    dbg("RoutesPage", "routes loaded", { count: Array.isArray(routesData) ? routesData.length : 0 });
   } else {
     const errorData = await res.json().catch(() => ({}));
     errorMessage = errorData.error || "Failed to load routes";
+    dbgErr("RoutesPage", "fetch list failed", { status: res.status, errorData });
   }
 
   /* ================= UI ================= */
   return (
     <AppShell>
+      <BrowserDebugLog
+        tag="RoutesPage"
+        payload={{
+          fetchBase: base,
+          routesUrl,
+          httpStatus: res.status,
+          ok: res.ok,
+          routeCount: Array.isArray(routesData) ? routesData.length : 0,
+          errorMessage,
+        }}
+      />
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
         
         {/* HEADER */}
@@ -54,12 +73,23 @@ export default async function RoutesPage() {
             action={async () => {
               "use server";
 
-              await fetch(
-                `${process.env.NEXT_PUBLIC_ROUTING_SERVICE_URL}/routes/create`,
-                {
-                  method: "POST",
+              const routingBase = process.env.NEXT_PUBLIC_ROUTING_SERVICE_URL?.replace(/\/+$/, "") ?? "";
+              const createUrl = routingBase ? `${routingBase}/routes/create` : "";
+              dbg("RoutesPage", "server action: create routes", { routingBase, createUrl });
+
+              if (!createUrl) {
+                dbgErr("RoutesPage", "NEXT_PUBLIC_ROUTING_SERVICE_URL missing; skip create fetch", {});
+              } else {
+                try {
+                  const createRes = await fetch(createUrl, { method: "POST" });
+                  dbg("RoutesPage", "create routes response", {
+                    ok: createRes.ok,
+                    status: createRes.status,
+                  });
+                } catch (e) {
+                  dbgErr("RoutesPage", "create routes fetch threw", e);
                 }
-              );
+              }
 
               // 🔥 refresh this page after generation
               revalidatePath("/routes");

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { AppShell } from "../../../components/AppShell";
+import { dbg, dbgErr } from "../../../lib/debugLog";
+import { getServerFetchBaseUrl } from "../../../lib/serverFetchBase";
 
 type RouteDetails = {
   id: string;
@@ -15,12 +17,16 @@ export default async function RouteDetailPage({
 }: {
   params: { id: string };
 }) {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/routes/${params.id}`,
-    { cache: "no-store" }
-  );
+  const base = getServerFetchBaseUrl();
+  const detailUrl = `${base}/api/routes/${params.id}`;
+  dbg("RouteDetailPage", "fetch detail", { base, id: params.id, detailUrl });
+
+  const res = await fetch(detailUrl, { cache: "no-store" });
+
+  dbg("RouteDetailPage", "fetch detail result", { id: params.id, ok: res.ok, status: res.status });
 
   if (!res.ok) {
+    dbgErr("RouteDetailPage", "route not found or error", { id: params.id, status: res.status });
     return (
       <AppShell>
         <div className="rounded-xl border bg-white p-6">

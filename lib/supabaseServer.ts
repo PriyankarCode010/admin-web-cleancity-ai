@@ -4,6 +4,8 @@ import {
   type User,
 } from "@supabase/supabase-js";
 
+import { dbgErr } from "./debugLog";
+
 /* ============================================================
    ENV VARIABLES
 ============================================================ */
@@ -109,7 +111,7 @@ export async function getUserFromRequest(
       error: null,
     };
   } catch (err) {
-    console.error("Auth validation error:", err);
+    dbgErr("getUserFromRequest", "Auth validation error", err);
     return {
       user: null,
       accessToken: null,

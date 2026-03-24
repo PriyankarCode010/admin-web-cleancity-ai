@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "../../components/AppShell";
+import { dbg, dbgErr } from "../../lib/debugLog";
 
 export type BinRequestItem = {
   id: string;
@@ -40,6 +41,7 @@ export function BinRequestsClient({ binRequests }: { binRequests?: BinRequestIte
 
   // Sync local state with props when binRequests change (after router.refresh())
   useEffect(() => {
+    dbg("BinRequestsClient", "props sync", { count: safeRequests.length, sampleIds: safeRequests.slice(0, 3).map((r) => r.id) });
     setRows(safeRequests);
     // Clear processed IDs when fresh data arrives (new data means server has updated)
     setProcessedIds(new Set());
@@ -48,9 +50,11 @@ export function BinRequestsClient({ binRequests }: { binRequests?: BinRequestIte
   const handleStatusUpdate = async (id: string, newStatus: string) => {
     // Prevent duplicate actions
     if (processedIds.has(id) || updatingId === id) {
+      dbg("BinRequestsClient", "handleStatusUpdate skipped (duplicate)", { id, newStatus });
       return;
     }
 
+    dbg("BinRequestsClient", "PATCH status start", { id, newStatus });
     setUpdatingId(id);
     setError(null);
 
@@ -73,8 +77,11 @@ export function BinRequestsClient({ binRequests }: { binRequests?: BinRequestIte
         body: JSON.stringify({ status: newStatus }),
       });
 
+      dbg("BinRequestsClient", "PATCH response", { id, status: res.status, ok: res.ok });
+
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        dbgErr("BinRequestsClient", "PATCH not ok", { id, httpStatus: res.status, body: data });
         
         // If 404, item was deleted - remove from state
         if (res.status === 404) {
@@ -100,9 +107,10 @@ export function BinRequestsClient({ binRequests }: { binRequests?: BinRequestIte
       }
 
       // Refresh server data
+      dbg("BinRequestsClient", "PATCH success, refresh", { id });
       router.refresh();
     } catch (err) {
-      console.error("[BinRequestsClient] Failed to update status", err);
+      dbgErr("BinRequestsClient", "Failed to update status (network/throw)", err);
       // Revert optimistic update on error
       setRows((prev) =>
         prev.map((r) => {
@@ -119,10 +127,12 @@ export function BinRequestsClient({ binRequests }: { binRequests?: BinRequestIte
   const handleDelete = async (id: string) => {
     // Prevent duplicate actions - check before confirm dialog
     if (processedIds.has(id) || updatingId === id) {
+      dbg("BinRequestsClient", "handleDelete skipped (duplicate)", { id });
       return;
     }
 
     if (!confirm("Are you sure you want to deny and delete this bin request? This action cannot be undone.")) {
+      dbg("BinRequestsClient", "handleDelete cancelled by user", { id });
       return;
     }
 
@@ -141,6 +151,7 @@ export function BinRequestsClient({ binRequests }: { binRequests?: BinRequestIte
       return next;
     });
 
+    dbg("BinRequestsClient", "DELETE start", { id });
     // Optimistically remove from UI
     setRows((prev) => prev.filter((r) => r.id !== id));
 
@@ -148,6 +159,8 @@ export function BinRequestsClient({ binRequests }: { binRequests?: BinRequestIte
       const res = await fetch(`/api/bin-requests/${id}`, {
         method: "DELETE",
       });
+
+      dbg("BinRequestsClient", "DELETE response", { id, status: res.status, ok: res.ok });
 
       // Treat 404 as success (item already deleted)
       if (res.status === 404) {
@@ -158,7 +171,8 @@ export function BinRequestsClient({ binRequests }: { binRequests?: BinRequestIte
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        
+        dbgErr("BinRequestsClient", "DELETE not ok", { id, httpStatus: res.status, body: data });
+
         // Revert optimistic update on error (except 404 which we treat as success)
         const original = safeRequests.find((br) => br.id === id);
         if (original) {
@@ -178,9 +192,10 @@ export function BinRequestsClient({ binRequests }: { binRequests?: BinRequestIte
       }
 
       // Success - refresh server data
+      dbg("BinRequestsClient", "DELETE success, refresh", { id });
       router.refresh();
     } catch (err) {
-      console.error("[BinRequestsClient] Failed to delete bin request", err);
+      dbgErr("BinRequestsClient", "Failed to delete bin request (network/throw)", err);
       // Revert optimistic update on error
       const original = safeRequests.find((br) => br.id === id);
       if (original) {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbg, dbgErr } from "../../../../lib/debugLog";
 import { getSupabaseServiceClient } from "../../../../lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +39,7 @@ export async function GET(
       .maybeSingle(); // safer than single()
 
     if (error) {
-      console.error("[routes/:id] Supabase error", error);
+      dbgErr("api/routes/[id]", "GET Supabase error", error);
 
       return NextResponse.json(
         { error: "Failed to fetch route" },
@@ -47,11 +48,14 @@ export async function GET(
     }
 
     if (!route) {
+      dbg("api/routes/[id]", "GET 404", { id });
       return NextResponse.json(
         { error: "Route not found" },
         { status: 404 }
       );
     }
+
+    dbg("api/routes/[id]", "GET 200", { id, name: route.name });
 
     return NextResponse.json(
       {
@@ -69,7 +73,7 @@ export async function GET(
       { status: 200 }
     );
   } catch (err) {
-    console.error("[routes/:id] Unexpected error", err);
+    dbgErr("api/routes/[id]", "GET unexpected", err);
 
     return NextResponse.json(
       { error: "Internal server error" },

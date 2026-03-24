@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withCors } from "../../../lib/cors";
+import { dbg, dbgErr } from "../../../lib/debugLog";
 import { getSupabaseServiceClient, getUserFromRequest } from "../../../lib/supabaseServer";
 
 // Force dynamic rendering - always fetch fresh data, no caching
@@ -24,8 +25,9 @@ export async function OPTIONS(req: Request) {
 // Used by the Expo citizen app. Requires a Supabase access token (Bearer).
 export async function POST(req: Request) {
   const origin = req.headers.get("origin");
-  
+
   try {
+    dbg("api/bin-requests", "POST start", { origin });
     const contentType = req.headers.get("content-type") ?? "";
     if (contentType && !contentType.toLowerCase().includes("application/json")) {
       const response = NextResponse.json({ error: "Content-Type must be application/json" }, { status: 400 });
@@ -34,9 +36,12 @@ export async function POST(req: Request) {
 
     const { user, error: authError } = await getUserFromRequest(req);
     if (!user) {
+      dbg("api/bin-requests", "POST 401", { authError });
       const response = NextResponse.json({ error: authError ?? "Unauthorized" }, { status: 401 });
       return withCors(response, origin, CORS_METHODS);
     }
+
+    dbg("api/bin-requests", "POST authed", { userId: user.id });
 
     let body: Partial<BinRequestPayload>;
     try {
@@ -99,15 +104,16 @@ export async function POST(req: Request) {
       .single();
 
     if (error) {
-      console.error("[bin-requests:POST] Supabase error inserting bin request", error);
+      dbgErr("api/bin-requests", "POST Supabase insert error", error);
       const response = NextResponse.json({ error: "Failed to create bin request" }, { status: 500 });
       return withCors(response, origin, CORS_METHODS);
     }
 
+    dbg("api/bin-requests", "POST 201 created", { id: (data as { id?: string })?.id });
     const response = NextResponse.json(data, { status: 201 });
     return withCors(response, origin, CORS_METHODS);
   } catch (err) {
-    console.error("[bin-requests:POST] Unexpected error", err);
+    dbgErr("api/bin-requests", "POST unexpected", err);
     const response = NextResponse.json({ error: "Internal server error" }, { status: 500 });
     return withCors(response, req.headers.get("origin"), CORS_METHODS);
   }
@@ -120,10 +126,12 @@ export async function POST(req: Request) {
 //   offset      -> offset for pagination (default 0)
 export async function GET(req: Request) {
   const origin = req.headers.get("origin");
-  
+
   try {
+    dbg("api/bin-requests", "GET start", { origin, url: req.url });
     const { user, error: authError } = await getUserFromRequest(req);
     if (!user) {
+      dbg("api/bin-requests", "GET 401", { authError });
       const response = NextResponse.json({ error: authError ?? "Unauthorized" }, { status: 401 });
       return withCors(response, origin, CORS_METHODS);
     }
@@ -153,8 +161,17 @@ export async function GET(req: Request) {
     // Supabase uses inclusive ranges.
     const { data, error } = await query.range(offset, offset + limit - 1);
 
+    dbg("api/bin-requests", "GET query done", {
+      role,
+      scope,
+      limit,
+      offset,
+      rowCount: Array.isArray(data) ? data.length : 0,
+      error: error ? String(error.message) : null,
+    });
+
     if (error) {
-      console.error("[bin-requests:GET] Supabase error fetching bin requests", error);
+      dbgErr("api/bin-requests", "GET Supabase error", error);
       const response = NextResponse.json({ error: "Failed to fetch bin requests" }, { status: 500 });
       return withCors(response, origin, CORS_METHODS);
     }
@@ -162,7 +179,7 @@ export async function GET(req: Request) {
     const response = NextResponse.json(data ?? [], { status: 200 });
     return withCors(response, origin, CORS_METHODS);
   } catch (err) {
-    console.error("[bin-requests:GET] Unexpected error", err);
+    dbgErr("api/bin-requests", "GET unexpected", err);
     const response = NextResponse.json({ error: "Internal server error" }, { status: 500 });
     return withCors(response, req.headers.get("origin"), CORS_METHODS);
   }
