@@ -19,7 +19,13 @@ export function WorkerCard({ worker, onAssign }: { worker: Worker; onAssign: () 
           {worker.status}
         </span>
       </div>
-      <p className="text-sm text-slate-700">Total cleanups: {worker.totalCleanups}</p>
+      <p className="text-sm text-slate-700">
+        Total cleanups:{" "}
+        <span className="font-semibold text-slate-900">{worker.totalCleanups}</span>
+        <span className="block text-xs font-normal text-slate-500 mt-0.5">
+          Resolved spots on routes assigned to this worker
+        </span>
+      </p>
       <button
         onClick={onAssign}
         className="inline-flex justify-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500"

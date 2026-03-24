@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
+import { withCors } from "../../../lib/cors";
 import { getSupabaseServiceClient, getUserFromRequest } from "../../../lib/supabaseServer";
 
 // Force dynamic rendering - always fetch fresh data, no caching
 export const dynamic = "force-dynamic";
+
+const CORS_METHODS = "GET, POST, OPTIONS";
 
 type BinRequestPayload = {
   latitude: number;
@@ -10,34 +13,11 @@ type BinRequestPayload = {
   address: string;
 };
 
-// CORS helper: add headers for cross-origin requests from Expo app
-function addCorsHeaders(response: NextResponse, origin?: string | null): NextResponse {
-  const allowedOrigins = [
-    "http://localhost:8081",
-    "http://localhost:19006",
-    "http://localhost:19000",
-    "exp://localhost:8081",
-    "http://localhost:3000"
-  ];
-  
-  const requestOrigin = origin || "";
-  const isAllowed = allowedOrigins.some((allowed) => requestOrigin.startsWith(allowed)) || !origin;
-  
-  if (isAllowed) {
-    response.headers.set("Access-Control-Allow-Origin", requestOrigin || "*");
-    response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    response.headers.set("Access-Control-Allow-Credentials", "true");
-  }
-  
-  return response;
-}
-
 // Handle OPTIONS preflight requests
 export async function OPTIONS(req: Request) {
   const origin = req.headers.get("origin");
   const response = new NextResponse(null, { status: 204 });
-  return addCorsHeaders(response, origin);
+  return withCors(response, origin, CORS_METHODS);
 }
 
 // POST /api/bin-requests
@@ -49,20 +29,21 @@ export async function POST(req: Request) {
     const contentType = req.headers.get("content-type") ?? "";
     if (contentType && !contentType.toLowerCase().includes("application/json")) {
       const response = NextResponse.json({ error: "Content-Type must be application/json" }, { status: 400 });
-      return addCorsHeaders(response, origin);
+      return withCors(response, origin, CORS_METHODS);
     }
 
     const { user, error: authError } = await getUserFromRequest(req);
     if (!user) {
       const response = NextResponse.json({ error: authError ?? "Unauthorized" }, { status: 401 });
-      return addCorsHeaders(response, origin);
+      return withCors(response, origin, CORS_METHODS);
     }
 
     let body: Partial<BinRequestPayload>;
     try {
       body = (await req.json()) as Partial<BinRequestPayload>;
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+      const bad = NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+      return withCors(bad, origin, CORS_METHODS);
     }
 
     const { latitude, longitude, address } = body;
@@ -75,19 +56,33 @@ export async function POST(req: Request) {
       !Number.isFinite(longitude) ||
       !addressStr
     ) {
-      return NextResponse.json(
-        { error: "Invalid payload. Expected { latitude: number, longitude: number, address: non-empty string }" },
-        { status: 400 }
+      return withCors(
+        NextResponse.json(
+          { error: "Invalid payload. Expected { latitude: number, longitude: number, address: non-empty string }" },
+          { status: 400 },
+        ),
+        origin,
+        CORS_METHODS,
       );
     }
 
     if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-      return NextResponse.json({ error: "Invalid coordinates. Latitude must be between -90 and 90, longitude between -180 and 180." }, { status: 400 });
+      return withCors(
+        NextResponse.json(
+          {
+            error:
+              "Invalid coordinates. Latitude must be between -90 and 90, longitude between -180 and 180.",
+          },
+          { status: 400 },
+        ),
+        origin,
+        CORS_METHODS,
+      );
     }
 
     if (addressStr.length > 512) {
       const response = NextResponse.json({ error: "Address is too long (max 512 characters)" }, { status: 400 });
-      return addCorsHeaders(response, origin);
+      return withCors(response, origin, CORS_METHODS);
     }
 
     const supabase = getSupabaseServiceClient();
@@ -106,15 +101,15 @@ export async function POST(req: Request) {
     if (error) {
       console.error("[bin-requests:POST] Supabase error inserting bin request", error);
       const response = NextResponse.json({ error: "Failed to create bin request" }, { status: 500 });
-      return addCorsHeaders(response, origin);
+      return withCors(response, origin, CORS_METHODS);
     }
 
     const response = NextResponse.json(data, { status: 201 });
-    return addCorsHeaders(response, origin);
+    return withCors(response, origin, CORS_METHODS);
   } catch (err) {
     console.error("[bin-requests:POST] Unexpected error", err);
     const response = NextResponse.json({ error: "Internal server error" }, { status: 500 });
-    return addCorsHeaders(response, req.headers.get("origin"));
+    return withCors(response, req.headers.get("origin"), CORS_METHODS);
   }
 }
 
@@ -130,7 +125,7 @@ export async function GET(req: Request) {
     const { user, error: authError } = await getUserFromRequest(req);
     if (!user) {
       const response = NextResponse.json({ error: authError ?? "Unauthorized" }, { status: 401 });
-      return addCorsHeaders(response, origin);
+      return withCors(response, origin, CORS_METHODS);
     }
 
     const supabase = getSupabaseServiceClient();
@@ -161,16 +156,14 @@ export async function GET(req: Request) {
     if (error) {
       console.error("[bin-requests:GET] Supabase error fetching bin requests", error);
       const response = NextResponse.json({ error: "Failed to fetch bin requests" }, { status: 500 });
-      return addCorsHeaders(response, origin);
+      return withCors(response, origin, CORS_METHODS);
     }
 
     const response = NextResponse.json(data ?? [], { status: 200 });
-    return addCorsHeaders(response, origin);
+    return withCors(response, origin, CORS_METHODS);
   } catch (err) {
     console.error("[bin-requests:GET] Unexpected error", err);
     const response = NextResponse.json({ error: "Internal server error" }, { status: 500 });
-    return addCorsHeaders(response, req.headers.get("origin"));
+    return withCors(response, req.headers.get("origin"), CORS_METHODS);
   }
 }
-
-

@@ -196,6 +196,7 @@ export function BinRequestsClient({ binRequests = [] as BinRequestItem[] }: { bi
       case "denied":
       case "rejected":
         return "bg-rose-50 text-rose-700";
+      case "installed":
       case "completed":
       case "resolved":
         return "bg-emerald-50 text-emerald-700";
@@ -228,7 +229,7 @@ export function BinRequestsClient({ binRequests = [] as BinRequestItem[] }: { bi
               <option value="requested">Requested</option>
               <option value="approved">Approved</option>
               <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
+              <option value="installed">Installed</option>
             </select>
           </div>
         </div>
@@ -302,21 +303,30 @@ export function BinRequestsClient({ binRequests = [] as BinRequestItem[] }: { bi
                             </>
                           )}
                           {request.status === "approved" && !processedIds.has(request.id) && (
-                            <button
-                              onClick={() => handleStatusUpdate(request.id, "in_progress")}
-                              disabled={updatingId === request.id || processedIds.has(request.id)}
-                              className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-70 disabled:cursor-not-allowed"
-                            >
-                              {updatingId === request.id ? "Updating…" : "Start"}
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleStatusUpdate(request.id, "in_progress")}
+                                disabled={updatingId === request.id || processedIds.has(request.id)}
+                                className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-70 disabled:cursor-not-allowed"
+                              >
+                                {updatingId === request.id ? "Updating…" : "Start"}
+                              </button>
+                              <button
+                                onClick={() => handleStatusUpdate(request.id, "installed")}
+                                disabled={updatingId === request.id || processedIds.has(request.id)}
+                                className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 disabled:opacity-70 disabled:cursor-not-allowed"
+                              >
+                                {updatingId === request.id ? "Updating…" : "Mark installed"}
+                              </button>
+                            </>
                           )}
                           {request.status === "in_progress" && !processedIds.has(request.id) && (
                             <button
-                              onClick={() => handleStatusUpdate(request.id, "completed")}
+                              onClick={() => handleStatusUpdate(request.id, "installed")}
                               disabled={updatingId === request.id || processedIds.has(request.id)}
                               className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-70 disabled:cursor-not-allowed"
                             >
-                              {updatingId === request.id ? "Updating…" : "Complete"}
+                              {updatingId === request.id ? "Updating…" : "Mark installed"}
                             </button>
                           )}
                           {processedIds.has(request.id) && (

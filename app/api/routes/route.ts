@@ -3,11 +3,15 @@ import { getSupabaseServiceClient } from "../../../lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const supabase = getSupabaseServiceClient();
+    const url = new URL(req.url);
+    const forAssignment =
+      url.searchParams.get("for_assignment") === "1" ||
+      url.searchParams.get("for_assignment") === "true";
 
-    const { data: routes, error } = await supabase
+    let query = supabase
       .from("routes")
       .select(`
         id,
@@ -20,6 +24,12 @@ export async function GET() {
         workers ( id, name )
       `)
       .order("created_at", { ascending: false });
+
+    if (forAssignment) {
+      query = query.neq("status", "completed");
+    }
+
+    const { data: routes, error } = await query;
 
     if (error) {
       console.error("[routes:GET] Supabase error", error);

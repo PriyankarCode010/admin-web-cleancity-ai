@@ -23,9 +23,10 @@ export async function POST(
       );
     }
 
+    let requesterRole = "";
     if (user) {
-      const role = (user.user_metadata?.role ?? "").toString();
-      if (role !== "admin" && role !== "worker") {
+      requesterRole = (user.user_metadata?.role ?? "").toString();
+      if (requesterRole !== "admin" && requesterRole !== "worker") {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     }
@@ -68,7 +69,7 @@ export async function POST(
     /* ---------- FIND ROUTE ---------- */
     const { data: route, error: routeError } = await supabase
       .from("routes")
-      .select("id, area_id, status")
+      .select("id, area_id, status, worker_id")
       .eq("id", route_id)
       .single();
 
@@ -79,19 +80,36 @@ export async function POST(
       );
     }
 
-    /* ---------- OPTIONAL SAFETY CHECK ---------- */
-    if (route.status === "assigned") {
+    const routeStatus = (route.status ?? "").toString().toLowerCase();
+    if (routeStatus === "completed") {
       return NextResponse.json(
-        { error: "Route already assigned" },
+        { error: "Cannot assign a completed route" },
         { status: 409 }
       );
     }
 
-    /* ---------- ASSIGN ROUTE ---------- */
+    const currentWorkerId = route.worker_id ? String(route.worker_id) : null;
+
+    if (user && requesterRole === "worker") {
+      if (params.id !== user.id) {
+        return NextResponse.json(
+          { error: "Workers can only assign routes to themselves" },
+          { status: 403 }
+        );
+      }
+      if (currentWorkerId && currentWorkerId !== user.id) {
+        return NextResponse.json(
+          { error: "Route already assigned to another worker" },
+          { status: 409 }
+        );
+      }
+    }
+
+    /* ---------- ASSIGN OR REASSIGN (admins / service: any non-completed route) ---------- */
     const { data: updatedRoute, error: updateError } = await supabase
       .from("routes")
       .update({
-        worker_id: worker.user_id, // ✅ UUID → matches routes.worker_id
+        worker_id: worker.user_id,
         status: "assigned",
       })
       .eq("id", route_id)

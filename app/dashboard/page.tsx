@@ -241,9 +241,13 @@ const maxBar = Math.max(...bars.map((b) => b.score), 1);
                         className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${
                           br.status === "requested"
                             ? "bg-amber-50 text-amber-700"
-                            : br.status === "in_progress"
-                            ? "bg-blue-50 text-blue-700"
-                            : "bg-emerald-50 text-emerald-700"
+                            : br.status === "approved"
+                              ? "bg-slate-100 text-slate-700"
+                              : br.status === "in_progress"
+                                ? "bg-blue-50 text-blue-700"
+                                : br.status === "installed"
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : "bg-slate-50 text-slate-700"
                         }`}
                       >
                         {br.status || "requested"}

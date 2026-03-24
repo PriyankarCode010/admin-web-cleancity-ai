@@ -9,6 +9,15 @@ export type WorkerRow = {
   active: boolean | null;
   zone?: string | null;
   profiles?: { full_name: string | null } | null;
+  totalCleanups: number;
+};
+
+type RouteOption = {
+  id: string;
+  name: string;
+  worker: string;
+  worker_id: string | null;
+  status: string;
 };
 
 export function WorkersClient({ workers = [] as WorkerRow[] }: { workers?: WorkerRow[] }) {
@@ -17,24 +26,39 @@ export function WorkersClient({ workers = [] as WorkerRow[] }: { workers?: Worke
   const [selected, setSelected] = useState<WorkerRow | null>(null);
   const [routeId, setRouteId] = useState("");
   const [notes, setNotes] = useState("");
-  const [assigning, setAssigning] = useState(false);  
+  const [assigning, setAssigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch available routes when modal opens
-  const [availableRoutes, setAvailableRoutes] = useState<Array<{ id: string; name: string }>>([]);
+  const [availableRoutes, setAvailableRoutes] = useState<RouteOption[]>([]);
 
   useEffect(() => {
     if (selected) {
-      fetch("/api/routes?status=pending")
+      fetch("/api/routes?for_assignment=1")
         .then((res) => res.json())
         .then((data) => {
           if (Array.isArray(data)) {
-            setAvailableRoutes(data.map((r: any) => ({ id: r.id, name: r.name || r.id })));
+            setAvailableRoutes(
+              data.map((r: any) => ({
+                id: r.id,
+                name: r.name || r.id,
+                worker: typeof r.worker === "string" ? r.worker : "Unassigned",
+                worker_id: r.worker_id ?? null,
+                status: r.status ?? "pending",
+              })),
+            );
+          } else {
+            setAvailableRoutes([]);
           }
         })
         .catch(() => setAvailableRoutes([]));
     }
   }, [selected]);
+
+  const selectedRoute = availableRoutes.find((r) => r.id === routeId);
+  const isReassign =
+    selectedRoute &&
+    selectedRoute.worker_id &&
+    selectedRoute.worker !== "Unassigned";
 
   const handleAssign = async () => {
     if (!selected || !routeId.trim()) {
@@ -80,7 +104,7 @@ export function WorkersClient({ workers = [] as WorkerRow[] }: { workers?: Worke
               id: worker.id,
               name: worker.profiles?.full_name || "Worker",
               zone: worker.zone || "Unknown",
-              totalCleanups: 0,
+              totalCleanups: worker.totalCleanups ?? 0,
               status: worker.active ? "Online" : "Offline",
             }}
             onAssign={() => setSelected(worker)}
@@ -91,9 +115,11 @@ export function WorkersClient({ workers = [] as WorkerRow[] }: { workers?: Worke
       {selected && (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/40 p-4">
           <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-lg">
-            <h3 className="text-lg font-bold text-slate-900">Assign Route</h3>
+            <h3 className="text-lg font-bold text-slate-900">Assign route</h3>
             <p className="text-sm text-slate-600 mt-1">
-              Assign a route to <span className="font-semibold">{selected.profiles?.full_name || "Worker"}</span>
+              Choose any open or in-progress route. If it already belongs to someone
+              else, assigning here will move it to{" "}
+              <span className="font-semibold">{selected.profiles?.full_name || "this worker"}</span>.
             </p>
             <div className="mt-4 space-y-3">
               <label className="text-sm font-semibold text-slate-700">Route</label>
@@ -103,12 +129,27 @@ export function WorkersClient({ workers = [] as WorkerRow[] }: { workers?: Worke
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-indigo-500 focus:outline-none"
               >
                 <option value="">Select a route</option>
-                {availableRoutes.map((route) => (
-                  <option key={route.id} value={route.id}>
-                    {route.name}
-                  </option>
-                ))}
+                {availableRoutes.map((route) => {
+                  const assigned =
+                    route.worker_id && route.worker !== "Unassigned";
+                  const suffix = assigned
+                    ? ` — ${route.worker} (${route.status})`
+                    : ` — unassigned (${route.status})`;
+                  return (
+                    <option key={route.id} value={route.id}>
+                      {route.name}
+                      {suffix}
+                    </option>
+                  );
+                })}
               </select>
+              {isReassign && (
+                <p className="text-xs rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-amber-900">
+                  This route is currently assigned to{" "}
+                  <span className="font-semibold">{selectedRoute?.worker}</span>. You
+                  are about to reassign it.
+                </p>
+              )}
               <label className="text-sm font-semibold text-slate-700">Notes</label>
               <textarea
                 value={notes}
@@ -136,7 +177,13 @@ export function WorkersClient({ workers = [] as WorkerRow[] }: { workers?: Worke
                 disabled={assigning || !routeId.trim()}
                 className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-70"
               >
-                {assigning ? "Assigning…" : "Assign"}
+                {assigning
+                  ? isReassign
+                    ? "Reassigning…"
+                    : "Assigning…"
+                  : isReassign
+                    ? "Reassign route"
+                    : "Assign route"}
               </button>
             </div>
           </div>
@@ -145,6 +192,3 @@ export function WorkersClient({ workers = [] as WorkerRow[] }: { workers?: Worke
     </>
   );
 }
-
-
-
