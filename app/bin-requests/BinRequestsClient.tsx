@@ -14,9 +14,24 @@ export type BinRequestItem = {
   user_id: string | null;
 };
 
-export function BinRequestsClient({ binRequests = [] as BinRequestItem[] }: { binRequests?: BinRequestItem[] }) {
+/** Stable server/client date label (avoids hydration mismatch on hosted runtimes). */
+function formatRequestDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "UTC",
+  });
+}
+
+const EMPTY_BIN_REQUESTS: BinRequestItem[] = [];
+
+export function BinRequestsClient({ binRequests }: { binRequests?: BinRequestItem[] }) {
   const router = useRouter();
-  const safeRequests = binRequests || [];
+  const safeRequests = binRequests ?? EMPTY_BIN_REQUESTS;
   const [rows, setRows] = useState<BinRequestItem[]>(safeRequests);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -274,13 +289,7 @@ export function BinRequestsClient({ binRequests = [] as BinRequestItem[] }: { bi
                         </span>
                       </td>
                       <td className="px-5 py-3 text-sm text-slate-700">
-                        {request.created_at
-                          ? new Date(request.created_at).toLocaleDateString("en-US", {
-                              year: "numeric",
-                              month: "2-digit",
-                              day: "2-digit",
-                            })
-                          : "—"}
+                        {formatRequestDate(request.created_at)}
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2">
