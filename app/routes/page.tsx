@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { AppShell } from "../../components/AppShell";
-import { BrowserDebugLog } from "../../components/BrowserDebugLog";
-import { revalidatePath } from "next/cache";
-import { dbg, dbgErr } from "../../lib/debugLog";
-import { getServerFetchBaseUrl } from "../../lib/serverFetchBase";
+import { AppShell } from "@/components/AppShell";
+import { BrowserDebugLog } from "@/components/BrowserDebugLog";
+import { CreateRoutesForm } from "./CreateRoutesForm";
+import { dbg, dbgErr } from "@/lib/debugLog";
+import { getServerFetchBaseUrl } from "@/lib/serverFetchBase";
 
 type RouteData = {
   id: string;
@@ -68,40 +68,7 @@ export default async function RoutesPage() {
             )}
           </div>
 
-          {/* ================= CREATE ROUTES BUTTON ================= */}
-          <form
-            action={async () => {
-              "use server";
-
-              const routingBase = process.env.NEXT_PUBLIC_ROUTING_SERVICE_URL?.replace(/\/+$/, "") ?? "";
-              const createUrl = routingBase ? `${routingBase}/routes/create` : "";
-              dbg("RoutesPage", "server action: create routes", { routingBase, createUrl });
-
-              if (!createUrl) {
-                dbgErr("RoutesPage", "NEXT_PUBLIC_ROUTING_SERVICE_URL missing; skip create fetch", {});
-              } else {
-                try {
-                  const createRes = await fetch(createUrl, { method: "POST" });
-                  dbg("RoutesPage", "create routes response", {
-                    ok: createRes.ok,
-                    status: createRes.status,
-                  });
-                } catch (e) {
-                  dbgErr("RoutesPage", "create routes fetch threw", e);
-                }
-              }
-
-              // 🔥 refresh this page after generation
-              revalidatePath("/routes");
-            }}
-          >
-            <button
-              type="submit"
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
-            >
-              Create Routes
-            </button>
-          </form>
+          <CreateRoutesForm />
         </div>
 
         {/* ================= CONTENT ================= */}
