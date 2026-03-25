@@ -28,8 +28,14 @@ export async function GET(req: Request) {
       `)
       .order("created_at", { ascending: false });
 
+    // Hide completed routes from both the main list and the assignment dropdown.
+    // (Workers should only deal with open/in-progress routes.)
+    query = query.neq("status", "completed");
+
     if (forAssignment) {
-      query = query.neq("status", "completed");
+      // Only show routes that are not yet assigned to a worker.
+      // WorkersClient uses this endpoint to populate the "Assign route" dropdown.
+      query = query.is("worker_id", null);
     }
 
     const { data: routes, error } = await query;
