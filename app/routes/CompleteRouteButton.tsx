@@ -6,16 +6,19 @@ import { useRouter } from "next/navigation";
 export function CompleteRouteButton({
   routeId,
   status,
+  workerId,
 }: {
   routeId: string;
   status?: string | null;
+  workerId?: string | null;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const normalized = (status ?? "").toLowerCase();
-  const disabled = normalized === "completed";
+  const isAssigned = !!workerId || normalized === "assigned";
+  const disabled = normalized === "completed" || !isAssigned;
 
   return (
     <div className="inline-flex items-center gap-2">

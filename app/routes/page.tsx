@@ -14,6 +14,7 @@ type RouteData = {
   google_maps_url?: string | null;
   total_severity?: number;
   status?: string | null;
+  worker_id?: string | null;
 };
 
 export const dynamic = "force-dynamic";
@@ -139,7 +140,11 @@ export default async function RoutesPage() {
                       View
                     </Link>
 
-                    <CompleteRouteButton routeId={route.id} status={route.status} />
+                    <CompleteRouteButton
+                      routeId={route.id}
+                      status={route.status}
+                      workerId={route.worker_id ?? null}
+                    />
                   </td>
                 </tr>
               ))}
