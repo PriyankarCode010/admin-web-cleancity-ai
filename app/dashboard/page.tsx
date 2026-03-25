@@ -1,9 +1,9 @@
-import { AppShell } from "../../components/AppShell";
-import { BrowserDebugLog } from "../../components/BrowserDebugLog";
-import { DashboardCharts } from "../../components/DashboardCharts";
-import { OverviewCard } from "../../components/OverviewCard";
-import { dbg, dbgErr } from "../../lib/debugLog";
-import { getSupabaseServiceClient } from "../../lib/supabaseServer";
+import { AppShell } from "@/components/AppShell";
+import { BrowserDebugLog } from "@/components/BrowserDebugLog";
+import { DashboardCharts } from "@/components/DashboardCharts";
+import { OverviewCard } from "@/components/OverviewCard";
+import { dbg, dbgErr } from "@/lib/debugLog";
+import { getSupabaseServiceClient } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -33,6 +33,48 @@ function reportDayKey(r: ReportRow): string | null {
   const t = Date.parse(typeof raw === "string" ? raw : String(raw));
   if (Number.isNaN(t)) return null;
   return new Date(t).toISOString().slice(0, 10);
+}
+
+/**
+ * Load reports for charts when the 30-day filtered query is empty but the table still has rows,
+ * or when the primary query fails. Skipped when totalReports is 0 so an empty DB stays empty.
+ */
+async function fetchReportsChartFallback(
+  supabase: ReturnType<typeof getSupabaseServiceClient>,
+  since: Date,
+  reason: "query_error" | "window_empty",
+): Promise<ReportRow[]> {
+  const { data: fallback, error: fbErr } = await supabase
+    .from("reports")
+    .select("id, created_at, severity, status")
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (fbErr) {
+    dbgErr("DashboardPage", "reports chart fallback error", fbErr);
+    return [];
+  }
+
+  if (!Array.isArray(fallback) || fallback.length === 0) {
+    return [];
+  }
+
+  const cutoff = since.getTime();
+  const filtered = (fallback as ReportRow[]).filter((r) => {
+    const raw = r.created_at;
+    if (!raw) return false;
+    const t = Date.parse(String(raw));
+    return !Number.isNaN(t) && t >= cutoff;
+  });
+
+  const rows =
+    filtered.length > 0 ? filtered : (fallback as ReportRow[]).slice(0, 200);
+  dbg("DashboardPage", "reports chart fallback applied", {
+    reason,
+    filteredLen: filtered.length,
+    finalReportsLen: rows.length,
+  });
+  return rows;
 }
 
 export default async function DashboardPage() {
@@ -103,28 +145,12 @@ export default async function DashboardPage() {
     ? (recentReports as ReportRow[])
     : [];
 
-  if (reports.length === 0 || reportsError) {
-    const { data: fallback, error: fbErr } = await supabase
-      .from("reports")
-      .select("id, created_at, severity, status")
-      .order("created_at", { ascending: false })
-      .limit(500);
-    if (fbErr) {
-      dbgErr("DashboardPage", "reports fallback error", fbErr);
-    } else if (Array.isArray(fallback) && fallback.length > 0) {
-      const cutoff = since.getTime();
-      const filtered = (fallback as ReportRow[]).filter((r) => {
-        const raw = r.created_at;
-        if (!raw) return false;
-        const t = Date.parse(String(raw));
-        return !Number.isNaN(t) && t >= cutoff;
-      });
-      reports = filtered.length > 0 ? filtered : (fallback as ReportRow[]).slice(0, 200);
-      dbg("DashboardPage", "reports fallback applied", {
-        filteredLen: filtered.length,
-        finalReportsLen: reports.length,
-      });
-    }
+  // Empty DB → empty charts. If the table has rows but none in the 30-day window (or primary
+  // query failed), pull a bounded fallback so severity mix / buckets aren’t all stuck at zero.
+  if (reportsError) {
+    reports = await fetchReportsChartFallback(supabase, since, "query_error");
+  } else if (reports.length === 0 && totalReports > 0) {
+    reports = await fetchReportsChartFallback(supabase, since, "window_empty");
   }
 
   dbg("DashboardPage", "reports for charts", { count: reports.length, since: since.toISOString() });

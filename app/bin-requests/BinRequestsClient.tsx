@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AppShell } from "../../components/AppShell";
-import { dbg, dbgErr } from "../../lib/debugLog";
+import { AppShell } from "@/components/AppShell";
+import { dbg, dbgErr } from "@/lib/debugLog";
 
 export type BinRequestItem = {
   id: string;

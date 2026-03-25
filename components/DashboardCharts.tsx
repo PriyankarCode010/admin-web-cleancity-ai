@@ -1,4 +1,4 @@
-import { dbg } from "../lib/debugLog";
+import { dbg } from "@/lib/debugLog";
 
 type DayPoint = { label: string; count: number };
 type BarPoint = { zone: string; score: number };

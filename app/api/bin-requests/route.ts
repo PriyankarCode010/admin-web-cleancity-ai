@@ -14,6 +14,18 @@ type BinRequestPayload = {
   address: string;
 };
 
+/** Accept numeric JSON or string coords from mobile clients */
+function toCoord(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const t = v.trim();
+    if (t === "") return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
 // Handle OPTIONS preflight requests
 export async function OPTIONS(req: Request) {
   const origin = req.headers.get("origin");
@@ -51,16 +63,12 @@ export async function POST(req: Request) {
       return withCors(bad, origin, CORS_METHODS);
     }
 
-    const { latitude, longitude, address } = body;
+    const { address } = body;
+    const latitude = toCoord(body.latitude);
+    const longitude = toCoord(body.longitude);
 
     const addressStr = typeof address === "string" ? address.trim() : "";
-    if (
-      typeof latitude !== "number" ||
-      typeof longitude !== "number" ||
-      !Number.isFinite(latitude) ||
-      !Number.isFinite(longitude) ||
-      !addressStr
-    ) {
+    if (latitude === null || longitude === null || !addressStr) {
       return withCors(
         NextResponse.json(
           { error: "Invalid payload. Expected { latitude: number, longitude: number, address: non-empty string }" },

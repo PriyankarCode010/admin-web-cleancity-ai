@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { AppShell } from "../../../components/AppShell";
-import { dbg, dbgErr } from "../../../lib/debugLog";
-import { getServerFetchBaseUrl } from "../../../lib/serverFetchBase";
+import { AppShell } from "@/components/AppShell";
+import { dbg, dbgErr } from "@/lib/debugLog";
+import { getServerFetchBaseUrl } from "@/lib/serverFetchBase";
 
 type RouteDetails = {
   id: string;

@@ -1,7 +1,7 @@
-import { BrowserDebugLog } from "../../components/BrowserDebugLog";
+import { BrowserDebugLog } from "@/components/BrowserDebugLog";
 import { BinRequestsClient, type BinRequestItem } from "./BinRequestsClient";
-import { dbg, dbgErr } from "../../lib/debugLog";
-import { getSupabaseServiceClient } from "../../lib/supabaseServer";
+import { dbg, dbgErr } from "@/lib/debugLog";
+import { getSupabaseServiceClient } from "@/lib/supabaseServer";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
